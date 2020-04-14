@@ -215,6 +215,7 @@ class Sort(object):
     #create and initialise new trackers for unmatched detections
     for i in unmatched_dets:
         trk = KalmanBoxTracker(dets[i,:]) 
+        print("reinit")
         self.trackers.append(trk)
     i = len(self.trackers)
     for trk in reversed(self.trackers):
@@ -224,6 +225,7 @@ class Sort(object):
         i -= 1
         #remove dead tracklet
         if(trk.time_since_update > self.max_age):
+          print("deletetracker")
           self.trackers.pop(i)
     if(len(ret)>0):
       return np.concatenate(ret)

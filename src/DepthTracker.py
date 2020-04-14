@@ -33,15 +33,20 @@ class DepthTracker:
         self.latestBbox = []
         self.mot_tracker = Sort()
         self.trackers = []
+        self.counter = 0
 
     def boundingBoxCallback(self,boundingBoxMsgString):
         boundingBoxString = boundingBoxMsgString.data
         boundingBoxData = json.loads(boundingBoxString)
         bboxes = boundingBoxData['bounding_boxes']
         # print("mnet",bboxes)
+        self.counter+=1
         if len(bboxes)>0:
-            self.trackers = self.mot_tracker.update(np.array(bboxes))   
-            
+            if self.counter%1==0:
+                self.trackers = self.mot_tracker.update(np.array(bboxes))
+            else:
+                self.trackers = self.mot_tracker.update(np.array([]))
+
             self.latestBbox = bboxes[0]
             if self.kalmanInit == False:
                 self.boxKalmanFilter = BoxKalmanFilter(bboxes[0])
@@ -62,12 +67,14 @@ class DepthTracker:
             (startX, startY, endX, endY) = box.astype("int")
             (bstartX, bstartY, bendX, bendY,confidence) = [int(i) for i in self.latestBbox]
             # print(self.trackers)
-            if (len(self.trackers)>0)
-                (startX, startY, endX, endY,_) = self.trackers[0].astype("int")
+            if (len(self.trackers)>0):
+                (SstartX, SstartY, SendX, SendY,_) = self.trackers[0].astype("int")
                 cv2.rectangle(frame, (startX, startY), (endX, endY),
                     np.array([200,0,0]), 2)
                 cv2.rectangle(frame, (bstartX, bstartY), (bendX, bendY),
-                    np.array([0,200,0]), 2)                
+                    np.array([0,200,0]), 2)
+                cv2.rectangle(frame, (SstartX, SstartY), (SendX, SendY),
+                    np.array([0,0,200]), 2)                
                 cv2.imshow('cv_img', frame)
                 cv2.waitKey(2)
 
