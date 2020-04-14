@@ -18,15 +18,15 @@ def convert_bbox_to_z(bbox):
     y = bbox[1]+h/2.
     s = w*h    #scale is just area
     r = w/float(h)
-    return np.array([x,y,s,r]).reshape((4,1))
+    return np.array([x,y,w,h]).reshape((4,1))
 
 def convert_x_to_bbox(x,score=None):
     """
     Takes a bounding box in the centre form [x,y,s,r] and returns it in the form
     [x1,y1,x2,y2] where x1,y1 is the top left and x2,y2 is the bottom right
     """
-    w = np.sqrt(x[2]*x[3])
-    h = x[2]/w
+    w = x[2]#np.sqrt(x[2]*x[3])
+    h = x[3]#x[2]/w
     if(score==None):
         return np.array([x[0]-w/2.,x[1]-h/2.,x[0]+w/2.,x[1]+h/2.]).reshape((1,4))
     else:
@@ -47,17 +47,29 @@ class BoxKalmanFilter:
         Initialises a tracker using initial bounding box.
         """
         #define constant velocity model
-        self.kf = KalmanFilter(dim_x=7, dim_z=4)
-        self.kf.F = np.array([[1,0,0,0,1,0,0],[0,1,0,0,0,1,0],[0,0,1,0,0,0,1],[0,0,0,1,0,0,0],[0,0,0,0,1,0,0],[0,0,0,0,0,1,0],[0,0,0,0,0,0,1]])
-        self.kf.H = np.array([[1,0,0,0,0,0,0],[0,1,0,0,0,0,0],[0,0,1,0,0,0,0],[0,0,0,1,0,0,0]])
+        self.kf = KalmanFilter(dim_x=8, dim_z=4)
+        self.kf.F =   np.array([[1,0,0,0,1,0,0,0],
+                                [0,1,0,0,0,1,0,0],\
+                                [0,0,1,0,0,0,1,0],\
+                                [0,0,0,1,0,0,0,1],\
+                                [0,0,0,0,1,0,0,0],\
+                                [0,0,0,0,0,1,0,0],\
+                                [0,0,0,0,0,0,1,0],\
+                                [0,0,0,0,0,0,0,1]])
+        self.kf.H =   np.array([[1,0,0,0,0,0,0,0],
+                                [0,1,0,0,0,0,0,0],
+                                [0,0,1,0,0,0,0,0],
+                                [0,0,0,1,0,0,0,0]])
 
-        self.kf.R[2:,2:] *= 0.1
-        self.kf.P[4:,4:] *= 1000. #give high uncertainty to the unobservable initial velocities
-        self.kf.P *= 10.
-        self.kf.Q[-1,-1] *= 0.01
-        self.kf.Q[4:,4:] *= 0.01
+        self.kf.R[:,:] *= 0.0001
+        # self.kf.P[4:,4:] *= 1000. #give high uncertainty to the unobservable initial velocities
+        # self.kf.P *= 10.
+        # self.kf.Q[-1,-1] *= 0.01
+        # self.kf.Q[4:,4:] *= 0.01
+        self.kf.Q[:,:] *= 10000
 
         self.kf.x[:4] = convert_bbox_to_z(bbox)
+
         self.time_since_update = 0
         self.history = []
         self.hits = 0
@@ -78,8 +90,8 @@ class BoxKalmanFilter:
         """
         Advances the state vector and returns the predicted bounding box estimate.
         """
-        if((self.kf.x[6]+self.kf.x[2])<=0):
-            self.kf.x[6] *= 0.0
+        # if((self.kf.x[6]+self.kf.x[2])<=0):
+        #     self.kf.x[6] *= 0.0
         self.kf.predict()
         self.age += 1
         if(self.time_since_update>0):
@@ -92,4 +104,5 @@ class BoxKalmanFilter:
         """
         Returns the current bounding box estimate.
         """
+        # print(self.kf.y)
         return convert_x_to_bbox(self.kf.x)

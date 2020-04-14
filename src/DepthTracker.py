@@ -21,6 +21,7 @@ import os
 from BoundingBoxMessage import BoundingBoxMessage
 import json
 from BoxKalmanFilter import BoxKalmanFilter
+from sort import Sort
 class DepthTracker:
     def __init__(self):
         self.points_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.pointCloudCallback,queue_size=1)
@@ -30,6 +31,8 @@ class DepthTracker:
         self.xyz_array = np.zeros((480,640,3))
         self.boxKalmanFilter = []
         self.latestBbox = []
+        self.mot_tracker = Sort()
+        self.trackers = []
 
     def boundingBoxCallback(self,boundingBoxMsgString):
         boundingBoxString = boundingBoxMsgString.data
@@ -37,6 +40,8 @@ class DepthTracker:
         bboxes = boundingBoxData['bounding_boxes']
         # print("mnet",bboxes)
         if len(bboxes)>0:
+            self.trackers = self.mot_tracker.update(np.array(bboxes))   
+            
             self.latestBbox = bboxes[0]
             if self.kalmanInit == False:
                 self.boxKalmanFilter = BoxKalmanFilter(bboxes[0])
@@ -55,18 +60,16 @@ class DepthTracker:
             bridge = CvBridge()
             frame = bridge.imgmsg_to_cv2(imageMsg, desired_encoding='passthrough')
             (startX, startY, endX, endY) = box.astype("int")
-            (bstartX, bstartY, bendX, bendY) = [int(i) for i in self.latestBbox]
-            # midptX,midptY = (startX+endX)//2,(startY+endY)//2
-            # print(frame.shape)
-            # draw the prediction on the frame
-            # label = "{}: {:.2f}%".format(CLASSES[idx],
-            #     confidence * 100)
-            cv2.rectangle(frame, (startX, startY), (endX, endY),
-                np.array([200,0,0]), 2)
-            cv2.rectangle(frame, (bstartX, bstartY), (bendX, bendY),
-                np.array([0,200,0]), 2)                
-            cv2.imshow('cv_img', frame)
-            cv2.waitKey(2)
+            (bstartX, bstartY, bendX, bendY,confidence) = [int(i) for i in self.latestBbox]
+            # print(self.trackers)
+            if (len(self.trackers)>0)
+                (startX, startY, endX, endY,_) = self.trackers[0].astype("int")
+                cv2.rectangle(frame, (startX, startY), (endX, endY),
+                    np.array([200,0,0]), 2)
+                cv2.rectangle(frame, (bstartX, bstartY), (bendX, bendY),
+                    np.array([0,200,0]), 2)                
+                cv2.imshow('cv_img', frame)
+                cv2.waitKey(2)
 
 def main(args):
     rospy.init_node("DepthTrackerNode", anonymous=True)

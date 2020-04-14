@@ -54,34 +54,18 @@ class BoundingBox:
         # predictions
         net.setInput(blob)
         detections = net.forward()
-        # print(detections.shape)
         for i in np.arange(0, detections.shape[2]):
             confidence = detections[0, 0, i, 2]
             if confidence > .2:
                 idx = int(detections[0, 0, i, 1])
                 box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
+                box = np.append(box,confidence)
                 bboxList.append(box.tolist())
                 objclass = CLASSES[idx]
         bboxMsg.timestamp = msg.header.stamp.secs+10**(-9)*msg.header.stamp.nsecs
         bboxMsg.seq = msg.header.seq
         bboxMsg.bounding_boxes = bboxList
-        # print(msg.header) 
         self.bounding_box_pub.publish(json.dumps(bboxMsg.__dict__))
-                # (startX, startY, endX, endY) = box.astype("int")
-                # midptX,midptY = (startX+endX)//2,(startY+endY)//2
-                # print(midptX,midptY)
-                # print(self.xyz_array[midptY,midptX,:])
-                # # print(frame.shape)
-                # # draw the prediction on the frame
-                # label = "{}: {:.2f}%".format(CLASSES[idx],
-                #     confidence * 100)
-                # cv2.rectangle(frame, (startX, startY), (endX, endY),
-                #     COLORS[idx], 2)
-                # y = startY - 15 if startY - 15 > 15 else startY + 15
-                # cv2.putText(frame, label, (startX, y),
-                #     cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
-        # cv2.imshow('cv_img', frame)
-        # cv2.waitKey(2)
 
 def main(args):
     rospy.init_node("bounding_box_node", anonymous=True)
