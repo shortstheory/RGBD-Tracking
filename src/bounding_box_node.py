@@ -58,13 +58,18 @@ class BoundingBox:
             confidence = detections[0, 0, i, 2]
             if confidence > .2:
                 idx = int(detections[0, 0, i, 1])
+                # print(idx)
                 box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                 box = np.append(box,confidence)
                 bboxList.append(box.tolist())
                 objclass = CLASSES[idx]
+                # print(objclass)
         bboxMsg.timestamp = msg.header.stamp.secs+10**(-9)*msg.header.stamp.nsecs
         bboxMsg.seq = msg.header.seq
         bboxMsg.bounding_boxes = bboxList
+        if len(bboxList) != 0:
+            bboxMsg.object_class = objclass
+        # print(bboxMsg.__dict__, "\n")
         self.bounding_box_pub.publish(json.dumps(bboxMsg.__dict__))
 
 def main(args):
