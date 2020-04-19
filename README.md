@@ -7,4 +7,4 @@ source catkin_build_ws/devel/setup.bash
 cd DepthTracker/src 
 python3 bounding_box_node.py 
 3)
-rosrun depth_test_node DepthTracker.py
+rosrun DepthTracker DepthTracker.py

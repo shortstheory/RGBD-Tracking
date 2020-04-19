@@ -18,7 +18,7 @@ from nav_msgs.msg import Odometry
 import ros_numpy
 import imutils
 import os
-from BoundingBoxMessage import BoundingBoxMessage
+from Helpers import BoundingBoxMessage
 from cv_bridge import CvBridge
 from std_msgs.msg import String
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
