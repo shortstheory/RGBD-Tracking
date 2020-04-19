@@ -1,8 +1,13 @@
-class Keypoint3D:
-    def __init__(self,kp,desc,point3D):
-        self.kp = kp
-        self.desc = desc
-        self.point3D = point3D
+import numpy as np
+class Keypoints3D:
+    def __init__(self):
+        self.keypoints = np.array([])
+        self.descriptors = np.array([])
+        self.objectPoints = np.array([])
+    def add(self, kp, desc, objectPoint):
+        np.append(self.keypoints, kp)
+        np.append(self.descriptors, desc)
+        np.append(self.objectPoints, objectPoint)
 
 class BoundingBoxMessage:
     def __init__(self):
