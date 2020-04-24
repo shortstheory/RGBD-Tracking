@@ -36,6 +36,7 @@ class DepthTracker:
         self.tf = tf.TransformListener()
         self.odomFrame = "odom"
         self.cameraOpticalFrameRGB = "camera_color_optical_frame"
+        self.particles3D = np.zeros((1,3))
 
     def boundingBoxCallback(self,boundingBoxMsgString):
         boundingBoxString = boundingBoxMsgString.data
@@ -83,44 +84,55 @@ class DepthTracker:
         # make sure units of z_estd are correct
         cameraPoints3D = z_estimate*np.matmul(np.linalg.inv(self.cameraK),pixels)
         return cameraPoints3D
-    
+
+    def camera2pixel(self,cameraPoints3D):
+        pixels = np.matmul(self.cameraK,(cameraPoints3D/cameraPoints3D[-1,:])[:2])
+        return pixels
+
     def getTfTransform(self, destination, source):
         if self.tf.frameExists(destination) and self.tf.frameExists(source):
             t = self.tf.getLatestCommonTime(destination, source)
             return self.tf.lookupTransform(destination, source, t)
         return None, None
 
-    def processFrame(self, img, bbox):
+    def processFrame(self, img, bbox, particles3D):
         keypoints, descriptors, img = self.getKeypoints2D(img, bbox)
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        search_params = dict(checks=50)
-        flann = cv2.FlannBasedMatcher(index_params,search_params)
-        matches = flann.knnMatch(self.objectModel.descriptors,descriptors,k=2)
         # Need to draw only good matches, so create a mask
+        # each index of match is the pt in 2nd frame
+        match, dMatch = self.featureMatch(self.objectModel.descriptors,descriptors)
+        for particle in particles3D:
+            cameraPoints3D = self.globalKeypoint2camera(match,particle)
+            pixels = self.camera2pixel(cameraPoints3D)
+        # do some correlation thing here
+
+    def featureMatch(self, descs1, descs2):
+        matcher = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_FLANNBASED)
+        matches = matcher.knnMatch(np.float32(descs1), np.float32(descs2), 2)
         match = []
         dMatch = []
         for d1,d2 in matches:
             if d1.distance < 0.7*d2.distance:
-                match.append(d1.trainIdx)
+                match.append(1)
                 dMatch.append(d1)
             else:
-                match.append(-1)
-        return match,dMatch
+                match.append(0)
+        return np.array(match),dMatch
 
-    def keypoint2camera(self, keypointMatches, particleGlobalXYZ):
+    # leave the keypoints as they are. Instead, divide the camera points by z_estd
+    def globalKeypoint2camera(self, keypointMatches, particleGlobal3D):
         translation, rotation = self.getTfTransform(self.cameraOpticalFrameRGB,self.odomFrame)
         Hcw = self.tf.fromTranslationRotation(translation,rotation)
         points3D = np.zeros((4,np.sum(keypointMatches)))
         points3D[3,:] = np.ones((np.sum(keypointMatches)))
-        for i in range(len(keypointMatches)):
-            if keypointMatches[i] == 1:
-                points3D[0:3,i] = self.objectModel[i].worldPointXYZ+particleGlobalXYZ
+        p3Didx = 0
+        for k,idx in enumerate(keypointMatches):
+            if idx != 0:
+                points3D[0:3,p3Didx] = self.objectModel.objectPoints[k]+particleGlobal3D
+                p3Didx += 1
         cameraPoints3D = np.matmul(Hcw,points3D)
-        cameraPoints3D = cameraPoints3D/cameraPoints3D[-1,:]
+        cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
         return cameraPoints3D
         #convert this to camera frame
-
 
 def main(args):
     rospy.init_node("DepthTrackerNode", anonymous=True)
