@@ -45,10 +45,10 @@ class DepthTracker:
         # print("box condition: ", type(bboxes))
         # print("box len: ", len(bboxes))
         # if len(bboxes)>0:
-            # if self.counter%1==0:
-            #     self.trackers = self.mot_tracker.update(np.array(bboxes))
-            # else:
-            #     self.trackers = self.mot_tracker.update(np.array([]))
+        #     if self.counter%1==0:
+        #         self.trackers = self.mot_tracker.update(np.array(bboxes))
+        #     else:
+        #         self.trackers = self.mot_tracker.update(np.array([]))
 
 
         if (len(bboxes) != 0 and bboxes_class == "person"):
@@ -76,15 +76,15 @@ class DepthTracker:
             (bstartX, bstartY, bendX, bendY,confidence) = [int(i) for i in self.latestBbox]
             # if (len(self.trackers)>0):
             if (len(box)>0):
-                # (SstartX, SstartY, SendX, SendY,_) = self.trackers[0].astype("int")
+                (SstartX, SstartY, SendX, SendY,_) = self.trackers[0].astype("int")
                 # print("here")
                 # print(startX, startY, endX, endY, "\n")
                 cv2.rectangle(frame, (startX, startY), (endX, endY),
                     np.array([200,0,0]), 2)
                 # cv2.rectangle(frame, (bstartX, bstartY), (bendX, bendY),
                 #     np.array([0,200,0]), 2)
-                # cv2.rectangle(frame, (SstartX, SstartY), (SendX, SendY),
-                #     np.array([0,0,200]), 2)                
+                cv2.rectangle(frame, (SstartX, SstartY), (SendX, SendY),
+                    np.array([0,0,200]), 2)                
                 cv2.imshow('cv_img', frame)
                 cv2.waitKey(2)
 
