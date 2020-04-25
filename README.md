@@ -8,3 +8,5 @@ cd DepthTracker/src
 python3 bounding_box_node.py 
 3)
 rosrun DepthTracker DepthTracker.py
+
+roslaunch hector_sensors_description realsense_d435_camera_static_transforms.launch camera_name:=camera

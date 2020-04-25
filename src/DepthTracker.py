@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+#%%
 from __future__ import print_function
 import sys
 import math
@@ -21,6 +22,7 @@ import os
 import json
 from Helpers import *
 import copy
+import pickle as pkl
 class DepthTracker:
     def __init__(self):
         self.points_sub = rospy.Subscriber("/camera/depth/points",PointCloud2,self.pointCloudCallback,queue_size=1)
@@ -33,7 +35,7 @@ class DepthTracker:
         self.sift = cv2.xfeatures2d.SIFT_create()
         self.cameraK = np.matrix([[462.1379497504639, 0.0, 320.5],[0.0, 462.1379497504639, 240.5],[0.0, 0.0, 1.0]])
         self.objectModel = Keypoints3D()
-        self.tf = tf.TransformListener()
+        # self.tf = tf.TransformListener()
         self.odomFrame = "odom"
         self.cameraOpticalFrameRGB = "camera_color_optical_frame"
         self.particles3D = np.zeros((1,3))
@@ -44,12 +46,17 @@ class DepthTracker:
         bboxes = boundingBoxData['bounding_boxes']
         if len(bboxes)>0:
             self.latestBbox = bboxes[0]
+            with open('bbox.pkl', 'wb') as pickle_file:
+                pkl.dump(self.latestBbox, pickle_file)
 
     def pointCloudCallback(self,cloud):
         self.xyz_array = ros_numpy.point_cloud2.pointcloud2_to_xyz_array(cloud,remove_nans=False)
+        with open('xyz.pkl', 'wb') as pickle_file:
+            pkl.dump(self.xyz_array, pickle_file)
 
     def imageCallback(self,imageMsg):
         frame = self.bridge.imgmsg_to_cv2(imageMsg, desired_encoding='passthrough')
+        cv2.imwrite('myman1.png',frame)
 
     def getKeypoints2D(self, img, bbox):
         (startX, startY, endX, endY,_) = [int(i) for i in bbox]
@@ -62,21 +69,25 @@ class DepthTracker:
         # sift ignores colour, so convert to grayscale
         keypoints, descriptors, cvimg = self.getKeypoints2D(cvimg, bbox)
         origin = np.array([cvimg.shape[0]//2,cvimg.shape[1]//2])
-
         (startX, startY, endX, endY,_) = [int(i) for i in bbox]        
-        campoints3D = self.xyz_array[startY:endY,startX:endX,:]
+        campoints3D = xyz_array[startY:endY,startX:endX,:]
         origin3D = campoints3D[cvimg.shape[0]//2,cvimg.shape[1]//2,:]
         keypoints3D = Keypoints3D()
+        R = np.array([[0,1,0],[0,0,1],[1,0,0]])
+
         for kp,desc in zip(keypoints,descriptors):
             # find a way to interpolate depth map
             u,v = int(kp.pt[1]), int(kp.pt[0])
-            point3D = campoints3D[u,v]-origin3D
+            point3D = np.matmul(R.T,campoints3D[u,v,:]-origin3D)
+            # print(point3D,campoints3D[u,v,:]-origin3D)
             if np.isnan(point3D).any() == False:
                 keypoints3D.add(kp,desc,point3D)
-        imgX = cv2.drawKeypoints(cvimg,keypoints,None)
-        cv2.imshow('cv_imgX', imgX)
-        cv2.waitKey(2)
-        return keypoint3DList
+        # imgX = cv2.drawKeypoints(cvimg,keypoints,None)
+        # cv2.imshow('cv_imgX', imgX)
+        # cv2.waitKey(2)
+        keypoints3D.numpyify()
+        self.objectModel = keypoints3D
+        return keypoints3D
 
     # pixels is a 3xN array
     def pixel2camera(self,pixels,z_estimate):
@@ -86,7 +97,7 @@ class DepthTracker:
         return cameraPoints3D
 
     def camera2pixel(self,cameraPoints3D):
-        pixels = np.matmul(self.cameraK,(cameraPoints3D/cameraPoints3D[-1,:])[:2])
+        pixels = np.matmul(self.cameraK,(cameraPoints3D/cameraPoints3D[-1,:]))[:2]
         return pixels
 
     def getTfTransform(self, destination, source):
@@ -119,9 +130,13 @@ class DepthTracker:
         return np.array(match),dMatch
 
     # leave the keypoints as they are. Instead, divide the camera points by z_estd
-    def globalKeypoint2camera(self, keypointMatches, particleGlobal3D):
-        translation, rotation = self.getTfTransform(self.cameraOpticalFrameRGB,self.odomFrame)
-        Hcw = self.tf.fromTranslationRotation(translation,rotation)
+    def globalKeypoint2camera(self, keypointMatches, particleGlobal3D, T, R):
+        # translation, rotation = self.getTfTransform(self.cameraOpticalFrameRGB,self.odomFrame)
+        # Hcw = self.tf.fromTranslationRotation(translation,rotation)
+        Hcw = np.zeros((4,4))
+        Hcw[:3,:3] = R
+        Hcw[:3,3] = T
+        Hcw[3,3] = 1
         points3D = np.zeros((4,np.sum(keypointMatches)))
         points3D[3,:] = np.ones((np.sum(keypointMatches)))
         p3Didx = 0
@@ -129,11 +144,13 @@ class DepthTracker:
             if idx != 0:
                 points3D[0:3,p3Didx] = self.objectModel.objectPoints[k]+particleGlobal3D
                 p3Didx += 1
+                print(self.objectModel.objectPoints[k])
+        print(points3D)
         cameraPoints3D = np.matmul(Hcw,points3D)
         cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
         return cameraPoints3D
         #convert this to camera frame
-
+#%%
 def main(args):
     rospy.init_node("DepthTrackerNode", anonymous=True)
     bbox = DepthTracker()
