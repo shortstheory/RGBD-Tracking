@@ -11,6 +11,7 @@ import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2
 import matplotlib
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
 
 #ROS Imports
 import rospy
@@ -20,6 +21,8 @@ from ackermann_msgs.msg import AckermannDriveStamped, AckermannDrive
 from nav_msgs.msg import Odometry
 import ros_numpy
 # import imutils
+from tf.transformations import quaternion_matrix
+
 from std_msgs.msg import String
 import os
 import json
@@ -79,12 +82,11 @@ class DepthTracker:
         keypoints3D = Keypoints3D()
         for kp,desc in zip(keypoints,descriptors):
             # find a way to interpolate depth map
-            u,v = int(kp.pt[1]+startY), int(kp.pt[0]+startX)
-            point3D = np.matmul(self.cameraR.T,xyz_array[u,v,:]-origin3D)
+            u,v = int(kp.pt[1]), int(kp.pt[0])
+            point3D = np.matmul(self.cameraR.T,campoints3D[u,v,:]-origin3D)
             # print(point3D,campoints3D[u,v,:]-origin3D)
             if np.isnan(point3D).any() == False:
-                point3D = np.array([0,0,0])
-            keypoints3D.add(kp,desc,point3D)
+                keypoints3D.add(kp,desc,point3D)
                 # print(campoints3D[u,v,:])
         keypoints3D.numpyify()
         self.objectModel = keypoints3D
@@ -107,6 +109,25 @@ class DepthTracker:
             return self.tf.lookupTransform(destination, source, t)
         return None, None
 
+    def shiftKeypoints(self, kps, dmatch, bbox):
+        pixels = []
+        for idx in dmatch:
+            pixels.append([kps[idx.trainIdx].pt[0]+bbox[0],kps[idx.trainIdx].pt[1]+bbox[1]])
+            # print(lkps[idx.trainIdx].pt[0]+lbbox[0],lkps[idx.trainIdx].pt[1]+lbbox[1])
+        return np.array(pixels).T
+
+
+    def correlation2D(self, particle, img, bbox):
+        # we can weight it by number of matches too
+        kps, desc, img = getKeypoints2D(img,bbox)
+        match, dmatch = self.featureMatch(self.objectModel.descriptors,desc)
+        pose, quaternion = self.getTfTransform(self.cameraOpticalFrameRGB,'/odom')
+        R = quaternion_matrix(quaternion)
+        cameraPoints3D = self.globalKeypoint2camera(match,particle,pose,R)
+        predictedKeypointPixels = self.camera2pixel(cameraPoints3D)
+        shiftedKeypointPixels = self.shiftKeypoints(kps,dmatch,bbox)
+        return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)
+
     def processFrame(self, img, bbox, particles3D):
         keypoints, descriptors, img = self.getKeypoints2D(img, bbox)
         # Need to draw only good matches, so create a mask
@@ -124,7 +145,7 @@ class DepthTracker:
         match = []
         dMatch = []
         for d1,d2 in matches:
-            if d1.distance < 0.7*d2.distance:
+            if d1.distance < 0.75*d2.distance:
                 match.append(1)
                 dMatch.append(d1)
             else:
