@@ -9,6 +9,9 @@ from cv_bridge import CvBridge, CvBridgeError
 import cv2
 import sensor_msgs.point_cloud2 as pc2
 from sensor_msgs.msg import PointCloud2
+import matplotlib
+import matplotlib.pyplot as plt
+
 #ROS Imports
 import rospy
 from sensor_msgs import point_cloud2
@@ -39,6 +42,7 @@ class DepthTracker:
         self.odomFrame = "odom"
         self.cameraOpticalFrameRGB = "camera_color_optical_frame"
         self.particles3D = np.zeros((1,3))
+        self.cameraR = np.array([[0,-1,0],[0,0,-1],[1,0,0]])
 
     def boundingBoxCallback(self,boundingBoxMsgString):
         boundingBoxString = boundingBoxMsgString.data
@@ -73,21 +77,18 @@ class DepthTracker:
         campoints3D = xyz_array[startY:endY,startX:endX,:]
         origin3D = campoints3D[cvimg.shape[0]//2,cvimg.shape[1]//2,:]
         keypoints3D = Keypoints3D()
-        R = np.array([[0,1,0],[0,0,1],[1,0,0]])
-
         for kp,desc in zip(keypoints,descriptors):
             # find a way to interpolate depth map
-            u,v = int(kp.pt[1]), int(kp.pt[0])
-            point3D = np.matmul(R.T,campoints3D[u,v,:]-origin3D)
+            u,v = int(kp.pt[1]+startY), int(kp.pt[0]+startX)
+            point3D = np.matmul(self.cameraR.T,xyz_array[u,v,:]-origin3D)
             # print(point3D,campoints3D[u,v,:]-origin3D)
             if np.isnan(point3D).any() == False:
-                keypoints3D.add(kp,desc,point3D)
-        # imgX = cv2.drawKeypoints(cvimg,keypoints,None)
-        # cv2.imshow('cv_imgX', imgX)
-        # cv2.waitKey(2)
+                point3D = np.array([0,0,0])
+            keypoints3D.add(kp,desc,point3D)
+                # print(campoints3D[u,v,:])
         keypoints3D.numpyify()
         self.objectModel = keypoints3D
-        return keypoints3D
+        return keypoints3D,origin3D
 
     # pixels is a 3xN array
     def pixel2camera(self,pixels,z_estimate):
@@ -118,7 +119,8 @@ class DepthTracker:
 
     def featureMatch(self, descs1, descs2):
         matcher = cv2.DescriptorMatcher_create(cv2.DescriptorMatcher_FLANNBASED)
-        matches = matcher.knnMatch(np.float32(descs1), np.float32(descs2), 2)
+        bf = cv2.BFMatcher()
+        matches = bf.knnMatch(descs1,descs2, k=2)
         match = []
         dMatch = []
         for d1,d2 in matches:
@@ -144,8 +146,8 @@ class DepthTracker:
             if idx != 0:
                 points3D[0:3,p3Didx] = self.objectModel.objectPoints[k]+particleGlobal3D
                 p3Didx += 1
-                print(self.objectModel.objectPoints[k])
-        print(points3D)
+                # print(self.objectModel.objectPoints[k])
+        # print(points3D)
         cameraPoints3D = np.matmul(Hcw,points3D)
         cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
         return cameraPoints3D
