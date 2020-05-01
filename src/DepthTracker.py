@@ -126,7 +126,7 @@ class DepthTracker:
         cameraPoints3D = self.globalKeypoint2camera(match,particle,pose,R)
         predictedKeypointPixels = self.camera2pixel(cameraPoints3D)
         shiftedKeypointPixels = self.shiftKeypoints(kps,dmatch,bbox)
-        return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)
+        return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)]
 
     def processFrame(self, img, bbox, particles3D):
         keypoints, descriptors, img = self.getKeypoints2D(img, bbox)
