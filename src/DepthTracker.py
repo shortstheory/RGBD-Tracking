@@ -12,7 +12,7 @@ from sensor_msgs.msg import PointCloud2
 import matplotlib
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
-
+from particle_filter import PF
 #ROS Imports
 import rospy
 from sensor_msgs import point_cloud2
@@ -47,23 +47,42 @@ class DepthTracker:
         self.particles3D = np.zeros((1,3))
         self.cameraR = np.array([[0,-1,0],[0,0,-1],[1,0,0]])
 
+    def IOU(self, bbox, latestBbox):
+        dx = min(bbox[2],self.latestBbox[2])-max(bbox[0],self.latestBbox[0])
+        dy = min(bbox[3],self.latestBbox[3])-max(bbox[1],self.latestBbox[1])
+        int_area = dx*dy
+        area_1 = (bbox[2]-bbox[0])*(bbox[3]-bbox[1])
+        area_2 = (latestBbox[2]-latestBbox[0])*(latestBbox[3]-latestBbox[1])
+        union_area = area_1+area_2-int_area
+        iou = int_area/union_area
+        return iou
+
+
     def boundingBoxCallback(self,boundingBoxMsgString):
         boundingBoxString = boundingBoxMsgString.data
         boundingBoxData = json.loads(boundingBoxString)
         bboxes = boundingBoxData['bounding_boxes']
-        if len(bboxes)>0:
+        # have a score function here for checking which bounding box tracks the best
+        if len(bboxes)==1:
             self.latestBbox = bboxes[0]
-            with open('bbox.pkl', 'wb') as pickle_file:
-                pkl.dump(self.latestBbox, pickle_file)
+        elif len(bboxes)>1:
+            max_iou = -1
+            max_idx = -1
+            for i,bbox in enumerate(bboxes):
+                iou = self.IOU(bbox, self.latestBbox)
+                if iou > max_iou:
+                    max_iou = area
+                    max_idx = i
+            self.latestBbox = bboxes[i]
 
     def pointCloudCallback(self,cloud):
         self.xyz_array = ros_numpy.point_cloud2.pointcloud2_to_xyz_array(cloud,remove_nans=False)
-        with open('xyz.pkl', 'wb') as pickle_file:
-            pkl.dump(self.xyz_array, pickle_file)
+        # with open('xyz.pkl', 'wb') as pickle_file:
+        #     pkl.dump(self.xyz_array, pickle_file)
 
     def imageCallback(self,imageMsg):
         frame = self.bridge.imgmsg_to_cv2(imageMsg, desired_encoding='passthrough')
-        cv2.imwrite('myman1.png',frame)
+        # cv2.imwrite('myman1.png',frame)
 
     def getKeypoints2D(self, img, bbox):
         (startX, startY, endX, endY,_) = [int(i) for i in bbox]
@@ -116,17 +135,21 @@ class DepthTracker:
             # print(lkps[idx.trainIdx].pt[0]+lbbox[0],lkps[idx.trainIdx].pt[1]+lbbox[1])
         return np.array(pixels).T
 
-
     def correlation2D(self, particle, img, bbox):
         # we can weight it by number of matches too
-        kps, desc, img = getKeypoints2D(img,bbox)
+        kps, desc, img = self.getKeypoints2D(img,bbox)
         match, dmatch = self.featureMatch(self.objectModel.descriptors,desc)
-        pose, quaternion = self.getTfTransform(self.cameraOpticalFrameRGB,'/odom')
+        pose, quaternion = self.getTfTransform(self.cameraOpticalFrameRGB,self.odomFrame)
         R = quaternion_matrix(quaternion)
         cameraPoints3D = self.globalKeypoint2camera(match,particle,pose,R)
         predictedKeypointPixels = self.camera2pixel(cameraPoints3D)
         shiftedKeypointPixels = self.shiftKeypoints(kps,dmatch,bbox)
-        return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)]
+        return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)
+    
+    def correlation3D(self, particle, img, bbox):
+        u,v = int(bbox[1]+bbox[3])//2,int(bbox[0]+bbox[2])//2
+        pose = self.xyz_array[u,v,:]
+        return np.linalg.norm(pose-particle)
 
     def processFrame(self, img, bbox, particles3D):
         keypoints, descriptors, img = self.getKeypoints2D(img, bbox)
