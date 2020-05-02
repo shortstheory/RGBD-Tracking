@@ -9,7 +9,7 @@ import cv2
 import matplotlib
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
-from particle_filter import PF
+from ParticleFilter import PF
 from Helpers import Keypoints3D
 from Vision import Vision
 #ROS Imports
@@ -24,28 +24,40 @@ class DepthTracker:
         self.objectModel = Keypoints3D()
         self.xyz_array = np.zeros((480,640,3))
         self.img = np.zeros((480,640,3))
-        self.currentBbox = [0,0,0,0]
+        self.bbox = [0,0,0,0]
 
         self.vision = Vision(cameraK, cameraR)
+        self.particleFilter = None
 
     def updateBBox(self, bboxes):
         # have a score function here for checking which bounding box tracks the best based on dt
         if len(bboxes)==1:
-            self.currentBbox = bboxes[0]
+            self.bbox = bboxes[0]
         elif len(bboxes)>1:
             max_iou = -1
             max_idx = -1
             for i,bbox in enumerate(bboxes):
-                iou = self.vision.IOU(bbox, self.currentBbox)
+                iou = self.vision.IOU(bbox, self.bbox)
                 if iou > max_iou:
                     max_iou = iou
                     max_idx = i
-            self.currentBbox = bboxes[max_idx]
+            self.bbox = bboxes[max_idx]
 
-    def updateMeasurements(self, img, xyz_array, bboxes):
+    def updateMeasurements(self, img, xyz_array, bboxes, scanFrame=False):
         self.xyz_array = xyz_array
         self.latestImg = img
+        self.updateBBox(bboxes)
 
+        if scanFrame==True:
+            self.objectModel, origin3D = self.vision.scanObject(self.img, self.bbox, self.xyz_array)
+            self.particleFilter = PF(origin3D)
+        else:
+            # need to handle cases here for pf
+            keypoints, descriptors, img = self.vision.getKeypoints2D(img, bbox)
+            match, dMatch = self.vision.featureMatch(self.objectModel.descriptors,descriptors)
+            for particle in particles3D:
+                cameraPoints3D = self.vision.globalKeypoint2camera(match,particle)
+                pixels = self.vision.camera2pixel(cameraPoints3D)
 
     def correlation2D(self, particle, img, bbox, cameraT, cameraR):
         # we can weight it by number of matches too
@@ -61,21 +73,9 @@ class DepthTracker:
         pose = self.xyz_array[u,v,:]
         return np.linalg.norm(pose-particle)
 
-    def processFrame(self, img, bbox, particles3D):
-        keypoints, descriptors, img = self.vision.getKeypoints2D(img, bbox)
-        # Need to draw only good matches, so create a mask
-        # each index of match is the pt in 2nd frame
-        match, dMatch = self.vision.featureMatch(self.objectModel.descriptors,descriptors)
-        for particle in particles3D:
-            cameraPoints3D = self.vision.globalKeypoint2camera(match,particle)
-            pixels = self.vision.camera2pixel(cameraPoints3D)
-        # do some correlation thing here
-
-
-        #convert this to camera frame
 #%%
 def main(args):
-    dt = DepthTracker()
+    dt = DepthTracker(None,None,None,None)
 
 if __name__=='__main__':
 	main(sys.argv)
