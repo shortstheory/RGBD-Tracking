@@ -1,3 +1,4 @@
-*.ipynb
+playground.ipynb
+tracking.ipynb
 *.pync
 src/__pycache__

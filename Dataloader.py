@@ -68,4 +68,4 @@ class Dataloader:
     bbox[2] = bbox_coords[0]+bbox_coords[2]
     bbox[3] = bbox_coords[1]+bbox_coords[3]
     bbox = bbox.astype('int')
-    return bbox, bbox_coords
+    return [bbox], [bbox_coords]

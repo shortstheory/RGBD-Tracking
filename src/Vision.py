@@ -8,6 +8,7 @@ class Vision:
         self.featureDetector = cv2.xfeatures2d.SIFT_create()
     
     def IOU(self, bbox, latestBbox):
+        print(bbox)
         dx = min(bbox[2],latestBbox[2])-max(bbox[0],latestBbox[0])
         dy = min(bbox[3],latestBbox[3])-max(bbox[1],latestBbox[1])
         int_area = dx*dy

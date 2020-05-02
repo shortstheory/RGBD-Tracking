@@ -1,7 +1,7 @@
 import numpy as np
 # covariance, num_p,  
 class PF:	
-  def __init__(self, init_pose, num_p = 10, cov = 0.1, model = "velocity"):
+  def __init__(self, init_pose, num_p = 100, cov = 0.001, model = "velocity"):
     '''
     initialize the particle filter with num_p_ particles and velocity or acc model
     Inputs:
