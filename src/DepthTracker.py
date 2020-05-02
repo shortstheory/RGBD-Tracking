@@ -62,24 +62,24 @@ class DepthTracker:
                     if np.isnan(origin).any() == False:
                         # evaluate all particles on 3D correlations EASY
                         # if considering RPY, then need to consider the image as well
-                        corr = self.correlation3D(particle, self.bbox, cameraT, cameraR)
+                        corr = self.correlation3D(particle, cameraT, cameraR)
                         correlations.append(corr)
                     else:
-                        corr = self.correlation2D(particle, self.bbox, keypoints, descriptors, match, dmatch, cameraT, cameraR)
+                        corr = self.correlation2D(particle, keypoints, descriptors, match, dmatch, cameraT, cameraR)
                         correlations.append(corr)
                 correlations = np.array(correlations)
                 self.particleFilter.update(correlations)
 
     # pass keypoints to this so we dont need to do SIFT over and over again
-    def correlation2D(self, particle, bbox, kps, desc, match, dmatch, cameraT, cameraR):
+    def correlation2D(self, particle, kps, desc, match, dmatch, cameraT, cameraR):
         # we can weight it by number of matches too
         cameraPoints3D = self.vision.globalKeypoint2camera(match,particle,self.objectModel,cameraT,cameraR)
         predictedKeypointPixels = self.vision.camera2pixel(cameraPoints3D)
-        shiftedKeypointPixels = self.vision.shiftKeypoints(kps,dmatch,bbox)
+        shiftedKeypointPixels = self.vision.shiftKeypoints(kps,dmatch,self.bbox)
         return np.linalg.norm(shiftedKeypointPixels-predictedKeypointPixels)
     
-    def correlation3D(self, particle, bbox, cameraT, cameraR):
-        u,v = int(bbox[1]+bbox[3])//2,int(bbox[0]+bbox[2])//2
+    def correlation3D(self, particle, cameraT, cameraR):
+        u,v = self.vision.getBBoxCenter(self.bbox)
         pose = self.xyz_array[u,v,:]
         particle3D = particle[:3]
         particle3D = particle3D.reshape(3,1)

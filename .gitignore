@@ -1,2 +1,3 @@
+*.ipynb
 *.pync
 src/__pycache__
