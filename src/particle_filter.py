@@ -1,5 +1,5 @@
 import numpy as np
-
+# covariance, num_p,  
 class PF:	
   def __init__(self, init_pose, num_p = 10, cov = 0.1, model = "velocity"):
     '''
