@@ -66,6 +66,17 @@ class Vision:
         cameraPoints3D = np.matmul(Hcw,points3D)
         cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
         return cameraPoints3D
+    
+    def transformPoints(self, T, R, points3D):
+        Hcw = np.zeros((4,4))
+        Hcw[:3,:3] = R
+        Hcw[:3,3] = T
+        Hcw[3,3] = 1
+        homogeneousPoints = np.vstack((points3D,np.ones(points3D.shape[1])))
+        transformedPoints = np.matmul(Hcw,homogeneousPoints)
+        transformedPoints = (transformedPoints/transformedPoints[-1,:])[:3,:]
+        return transformedPoints
+
 
     def shiftKeypoints(self, kps, dmatch, bbox):
         pixels = []

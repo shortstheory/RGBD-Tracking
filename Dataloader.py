@@ -7,9 +7,9 @@ import cv2
 
 class Dataloader:
   
-  def __init__(self, directory, dataset_name = "bear_front"):
+  def __init__(self, directory, dataset_name = "/bear_front"):
     self.directory = directory
-    self.mat_content = sio.loadmat(pjoin(self.directory, "frames.mat"))
+    self.mat_content = sio.loadmat(pjoin(self.directory+dataset_name, "frames.mat"))
     self.frames = self.mat_content["frames"]
     self.K = self.frames[0,0]['K']
     self.getIntrinsics()
