@@ -9,13 +9,14 @@ class Dataloader:
   
   def __init__(self, directory, dataset_name = "/bear_front"):
     self.directory = directory
-    self.mat_content = sio.loadmat(pjoin(self.directory+dataset_name, "frames.mat"))
+    self.mat_content = sio.loadmat(pjoin(self.directory, "frames.mat"))
     self.frames = self.mat_content["frames"]
     self.K = self.frames[0,0]['K']
     self.getIntrinsics()
     self.getNumOfFrames()
     self.getTimeandFrameIDs()
-    self.bboxes = np.loadtxt(pjoin(directory, dataset_name + ".txt"), delimiter = ",")
+
+    self.bboxes = np.loadtxt(self.directory+dataset_name+".txt", delimiter = ",")
     self.init_bbox = np.loadtxt(pjoin(directory, "init.txt"), delimiter = ",")
 
 
@@ -49,7 +50,6 @@ class Dataloader:
     return depth_div
 
   def getXYZ(self, frameId):
-    img = self.getRGB(frameId)
     depth_div = self.getDepth(frameId)
     
     [x,y] = np.meshgrid(np.arange(0, 640), np.arange(0, 480))

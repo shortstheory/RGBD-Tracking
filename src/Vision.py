@@ -1,11 +1,10 @@
 import cv2
 import numpy as np
-from Helpers import Keypoints3D
+from .Helpers import Keypoints3D
 
 class Vision:
-    def __init__(self,K,R):
+    def __init__(self,K):
         self.cameraK = K
-        self.cameraR = R
         self.featureDetector = cv2.xfeatures2d.SIFT_create()
     
     def IOU(self, bbox, latestBbox):
@@ -22,7 +21,7 @@ class Vision:
         return int(bbox[1]+bbox[3])//2,int(bbox[0]+bbox[2])//2
 
     def getKeypoints2D(self, img, bbox):
-        (startX, startY, endX, endY,_) = [int(i) for i in bbox]
+        (startX, startY, endX, endY) = [int(i) for i in bbox]
         img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         img = img[startY:endY,startX:endX]
         keypoints, descriptors = self.featureDetector.detectAndCompute(img,None)
@@ -67,16 +66,19 @@ class Vision:
         cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
         return cameraPoints3D
     
-    def transformPoints(self, T, R, points3D):
+    def transformPoints(self, T, R, points3D, inverse=False):
         Hcw = np.zeros((4,4))
         Hcw[:3,:3] = R
         Hcw[:3,3] = T
         Hcw[3,3] = 1
+        if inverse == True:
+            Hcw = np.linalg.inv(Hcw)
+        if (len(points3D.shape)==1):
+            points3D = points3D.reshape(3,1)
         homogeneousPoints = np.vstack((points3D,np.ones(points3D.shape[1])))
-        transformedPoints = np.matmul(Hcw,homogeneousPoints)
+        transformedPoints = Hcw@homogeneousPoints
         transformedPoints = (transformedPoints/transformedPoints[-1,:])[:3,:]
         return transformedPoints
-
 
     def shiftKeypoints(self, kps, dmatch, bbox):
         pixels = []
@@ -84,16 +86,19 @@ class Vision:
                 pixels.append([kps[idx.trainIdx].pt[0]+bbox[0],kps[idx.trainIdx].pt[1]+bbox[1]])
         return np.array(pixels).T
 
-    def scanObject(self, cvimg, bbox, xyz_array):
+    # add camera R and T as arguments here!
+    def scanObject(self, cvimg, bbox, xyz_array, T, R):
         keypoints, descriptors, cvimg = self.getKeypoints2D(cvimg, bbox)
-        (startX, startY, endX, endY) = [int(i) for i in bbox]        
+        (startX, startY, endX, endY) = [int(i) for i in bbox]
         campoints3D = xyz_array[startY:endY,startX:endX,:]
         origin3D = campoints3D[cvimg.shape[0]//2,cvimg.shape[1]//2,:]
         keypoints3D = Keypoints3D()
         for kp,desc in zip(keypoints,descriptors):
-            # find a way to interpolate depth map
+            # find a way to do bilinear interpolation of depth map
             u,v = int(kp.pt[1]), int(kp.pt[0])
-            point3D = np.matmul(self.cameraR.T,campoints3D[u,v,:]-origin3D)
+            relativePoint = campoints3D[u,v,:]-origin3D
+            # print(campoints3D[u,v,:])
+            point3D = self.transformPoints(T,R,relativePoint,True).reshape(-1)
             if np.isnan(point3D).any() == False:
                 keypoints3D.add(kp,desc,point3D)
         keypoints3D.numpyify()
