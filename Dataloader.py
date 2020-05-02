@@ -35,13 +35,13 @@ class Dataloader:
     self.depthFrameIDs = self.frames[0,0]['depthFrameID'][0]
 
   def getRGB(self, frameId):
-    imageName = pjoin(self.directory, "rgb/r-%d-%d.png" %(imageTimeStamps[frameId], imageFrameIDs[frameId]))
+    imageName = pjoin(self.directory, "rgb/r-%d-%d.png" %(self.imageTimeStamps[frameId], self.imageFrameIDs[frameId]))
     img = cv2.imread(imageName)
 
     return img
 
   def getDepth(self, frameId):
-    depthName = pjoin(self.directory, "depth/d-%d-%d.png" %(depthTimeStamps[frameId], depthFrameIDs[frameId]))
+    depthName = pjoin(self.directory, "depth/d-%d-%d.png" %(self.depthTimeStamps[frameId], self.depthFrameIDs[frameId]))
     depth = cv2.imread(depthName,0)
     depth = (depth << 3) | (depth << (16 - 3))
     depth_div = depth/1000
@@ -53,8 +53,8 @@ class Dataloader:
     depth_div = self.getDepth(frameId)
     
     [x,y] = np.meshgrid(np.arange(0, 640), np.arange(0, 480))
-    Xworld = ((x-cx)*depth_div)*1/fx
-    Yworld = ((y-cy)*depth_div)*1/fy
+    Xworld = ((x-self.cx)*depth_div)*1/self.fx
+    Yworld = ((y-self.cy)*depth_div)*1/self.fy
     Zworld = depth_div
     XYZarray = np.dstack((Xworld, Yworld, Zworld))
 
@@ -62,5 +62,10 @@ class Dataloader:
 
   def getBbox(self, frameId):
     bbox_coords = self.bboxes[frameId]
-
-    return bbox_coords
+    bbox = np.zeros(4)
+    bbox[0] = bbox_coords[0]
+    bbox[1] = bbox_coords[1]
+    bbox[2] = bbox_coords[0]+bbox_coords[2]
+    bbox[3] = bbox_coords[1]+bbox_coords[3]
+    bbox = bbox.astype('int')
+    return bbox, bbox_coords
