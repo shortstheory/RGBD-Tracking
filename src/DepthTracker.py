@@ -28,7 +28,6 @@ class DepthTracker:
         self.particleFilter = None
 
     def updateBBox(self, bboxes):
-        # have a score function here for checking which bounding box tracks the best based on dt
         if len(bboxes)==1:
             self.bbox = bboxes[0]
         elif len(bboxes)>1:
@@ -55,23 +54,24 @@ class DepthTracker:
             self.particleFilter.update(dt)
             if self.bbox is not None:
                 keypoints, descriptors, img = self.vision.getKeypoints2D(img, self.bbox)
-                match, dMatch = self.vision.featureMatch(self.objectModel.descriptors, descriptors)
+                match, dmatch = self.vision.featureMatch(self.objectModel.descriptors, descriptors)
                 correlations = []
                 for particle in self.particleFilter.particles:
-                    particleXYZ = particle[:3]
                     u,v = self.vision.getBBoxCenter(self.bbox)
                     origin = self.xyz_array[u,v,:]
                     if np.isnan(origin).any() == False:
                         # evaluate all particles on 3D correlations EASY
                         # if considering RPY, then need to consider the image as well
-                        correlations.append(self.correlation3D(particle, self.bbox, cameraT, cameraR))
+                        corr = self.correlation3D(particle, self.bbox, cameraT, cameraR)
+                        correlations.append(corr)
                     else:
-                        correlations.append(0)
+                        corr = self.correlation2D(particle, self.bbox, keypoints, descriptors, match, dmatch, cameraT, cameraR)
+                        correlations.append(corr)
                 correlations = np.array(correlations)
                 self.particleFilter.update(correlations)
 
     # pass keypoints to this so we dont need to do SIFT over and over again
-    def correlation2D(self, particle, img, bbox, kps, desc, match, dmatch, cameraT, cameraR):
+    def correlation2D(self, particle, bbox, kps, desc, match, dmatch, cameraT, cameraR):
         # we can weight it by number of matches too
         cameraPoints3D = self.vision.globalKeypoint2camera(match,particle,self.objectModel,cameraT,cameraR)
         predictedKeypointPixels = self.vision.camera2pixel(cameraPoints3D)
