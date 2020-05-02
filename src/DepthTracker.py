@@ -19,8 +19,6 @@ import pickle as pkl
 
 class DepthTracker:
     def __init__(self, cameraK, cameraR, h, w):
-        self.sift = cv2.xfeatures2d.SIFT_create()
-
         self.objectModel = Keypoints3D()
         self.xyz_array = np.zeros((480,640,3))
         self.img = np.zeros((480,640,3))
@@ -43,7 +41,7 @@ class DepthTracker:
                     max_idx = i
             self.bbox = bboxes[max_idx]
 
-    def updateMeasurements(self, img, xyz_array, bboxes, scanFrame=False):
+    def updateMeasurements(self, img, xyz_array, bboxes, cameraT, cameraR, dt, scanFrame=False):
         self.xyz_array = xyz_array
         self.latestImg = img
         self.updateBBox(bboxes)
@@ -53,12 +51,27 @@ class DepthTracker:
             self.particleFilter = PF(origin3D)
         else:
             # need to handle cases here for pf
-            keypoints, descriptors, img = self.vision.getKeypoints2D(img, bbox)
-            match, dMatch = self.vision.featureMatch(self.objectModel.descriptors,descriptors)
-            for particle in particles3D:
-                cameraPoints3D = self.vision.globalKeypoint2camera(match,particle)
-                pixels = self.vision.camera2pixel(cameraPoints3D)
+            # assume bbox is always in image frame (but need not be in RGB)
+            self.particleFilter.update(dt)
+            if self.bbox is not None:
+                keypoints, descriptors, img = self.vision.getKeypoints2D(img, self.bbox)
+                match, dMatch = self.vision.featureMatch(self.objectModel.descriptors, descriptors)
+                for particle in self.particleFilter.particles:
+                    particleXYZ = particle[:3]
+                    u,v = self.vision.getBBoxCenter(self.bbox)
+                    origin = self.xyz_array[u,v,:]
+                    if np.isnan(origin).any() == False:
+                        # evaluate all particles on 3D correlations EASY
+                        print('')
+                    else:
+                        # evaluate on 2D HARD
+                        cameraPoints3D = self.vision.globalKeypoint2camera(match, self.objectModel, particleXYZ, \
+                                                                        cameraT, cameraR)
+                        pixels = self.vision.camera2pixel(cameraPoints3D)
+                        print('')
+                    # send correlations to filter
 
+    # pass keypoints to this so we dont need to do SIFT over and over again
     def correlation2D(self, particle, img, bbox, cameraT, cameraR):
         # we can weight it by number of matches too
         kps, desc, img = self.vision.getKeypoints2D(img,bbox)

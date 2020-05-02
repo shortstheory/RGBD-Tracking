@@ -6,6 +6,7 @@ class Vision:
     def __init__(self,K,R):
         self.cameraK = K
         self.cameraR = R
+        self.featureDetector = cv2.xfeatures2d.SIFT_create()
     
     def IOU(self, bbox, latestBbox):
         dx = min(bbox[2],latestBbox[2])-max(bbox[0],latestBbox[0])
@@ -17,11 +18,14 @@ class Vision:
         iou = int_area/union_area
         return iou
 
+    def getBBoxCenter(self, bbox):
+        return int(bbox[1]+bbox[3])//2,int(bbox[0]+bbox[2])//2
+
     def getKeypoints2D(self, img, bbox):
         (startX, startY, endX, endY,_) = [int(i) for i in bbox]
         img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         img = img[startY:endY,startX:endX]
-        keypoints, descriptors = self.sift.detectAndCompute(img,None)
+        keypoints, descriptors = self.featureDetector.detectAndCompute(img,None)
         return keypoints, descriptors, img
 
     # pixels is a 3xN array
@@ -47,7 +51,7 @@ class Vision:
         return np.array(match),dMatch
 
     # leave the keypoints as they are. Instead, divide the camera points by z_estd
-    def globalKeypoint2camera(self, keypointMatches, particleGlobal3D, T, R):
+    def globalKeypoint2camera(self, keypointMatches, objectModel, particleGlobal3D, T, R):
         Hcw = np.zeros((4,4))
         Hcw[:3,:3] = R
         Hcw[:3,3] = T
@@ -57,7 +61,7 @@ class Vision:
         p3Didx = 0
         for k,idx in enumerate(keypointMatches):
             if idx != 0:
-                points3D[0:3,p3Didx] = self.objectModel.objectPoints[k]+particleGlobal3D
+                points3D[0:3,p3Didx] = objectModel.objectPoints[k]+particleGlobal3D
                 p3Didx += 1
         cameraPoints3D = np.matmul(Hcw,points3D)
         cameraPoints3D = (cameraPoints3D/cameraPoints3D[-1,:])[:3,:]
