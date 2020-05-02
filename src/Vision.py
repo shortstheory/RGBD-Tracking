@@ -97,9 +97,8 @@ class Vision:
             # find a way to do bilinear interpolation of depth map
             u,v = int(kp.pt[1]), int(kp.pt[0])
             relativePoint = campoints3D[u,v,:]-origin3D
-            # print(campoints3D[u,v,:])
             point3D = self.transformPoints(T,R,relativePoint,True).reshape(-1)
-            if np.isnan(point3D).any() == False:
+            if np.isnan(point3D).any() == False and campoints3D[u,v,2] != 0:
                 keypoints3D.add(kp,desc,point3D)
         keypoints3D.numpyify()
         return keypoints3D,origin3D
