@@ -74,8 +74,8 @@ class DepthTracker:
                     correlations = np.array(correlations)
                     bestParticleIdx = np.argmax(correlations)
                     self.particleFilter.update(correlations)
-                    return self.particleFilter.particles[bestParticleIdx]
-        return None
+                    return self.particleFilter.particles[bestParticleIdx], bestParticleIdx
+        return None, None
 
     # pass keypoints to this so we dont need to do SIFT over and over again
     def correlation2D(self, particle, kps, desc, match, dmatch, cameraT, cameraR):
@@ -91,7 +91,7 @@ class DepthTracker:
         pose = self.xyz_array[u,v,:]
         particle3D = particle[:3]
         particle3D = particle3D.reshape(3,1)
-        cameraPoint = self.vision.transformPoints(cameraT, cameraR, particle3D)
+        cameraPoint = self.vision.transformPoints(cameraT, cameraR, particle3D).reshape(-1)
         pointErr = np.linalg.norm(pose-cameraPoint)
         return 1/pointErr
 
