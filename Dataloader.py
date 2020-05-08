@@ -43,8 +43,8 @@ class Dataloader:
 
   def getDepth(self, frameId):
     depthName = pjoin(self.directory, "depth/d-%d-%d.png" %(self.depthTimeStamps[frameId], self.depthFrameIDs[frameId]))
-    depth = cv2.imread(depthName,0)
-    depth = (depth << 3) | (depth << (16 - 3))
+    depth = cv2.imread(depthName,-1)
+    depth = (depth >> 3) | (depth << (16 - 3))
     depth_div = depth/1000
 
     return depth_div

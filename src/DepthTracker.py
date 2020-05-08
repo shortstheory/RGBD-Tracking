@@ -16,7 +16,7 @@ import copy
 import pickle as pkl
 
 class DepthTracker:
-    def __init__(self, cameraK):
+    def __init__(self, cameraK, particleN, particleCov):
         self.objectModel = Keypoints3D()
         self.xyz_array = None
         self.img = None
@@ -24,6 +24,8 @@ class DepthTracker:
 
         self.vision = Vision(cameraK)
         self.particleFilter = None
+        self.particleN = particleN
+        self.particleCov = particleCov
 
     def updateBBox(self, bboxes):
         if len(bboxes)==1:
@@ -50,7 +52,7 @@ class DepthTracker:
             self.objectModel, origin3D = self.vision.scanObject(self.latestImg, self.bbox, self.xyz_array, cameraT, cameraR)
             pfInitialState = np.zeros(6)
             pfInitialState[:3] = origin3D
-            self.particleFilter = PF(pfInitialState)
+            self.particleFilter = PF(pfInitialState,self.particleN,self.particleCov)
         else:
             # need to handle cases here for pf
             # assume bbox is always in image frame (but need not be in RGB)

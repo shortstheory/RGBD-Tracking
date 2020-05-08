@@ -1,7 +1,7 @@
 import numpy as np
 # covariance, num_p,  
 class PF:	
-  def __init__(self, init_pose, num_p = 100, cov = 0.001, model = "velocity"):
+  def __init__(self, init_pose, num_p = 1000, cov = np.diag(0.01*np.ones(6)), model = "velocity"):
     '''
     initialize the particle filter with num_p_ particles and velocity or acc model
     Inputs:
@@ -14,7 +14,7 @@ class PF:
     self.model = model
     if model == "velocity":
       self.state_dims = 6
-    self.cov = cov * np.identity(self.state_dims)
+    self.cov = cov
     self.best_p = init_pose
 
     self.init_pose = init_pose
