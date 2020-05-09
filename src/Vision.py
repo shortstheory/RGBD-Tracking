@@ -5,10 +5,9 @@ from .Helpers import Keypoints3D
 class Vision:
     def __init__(self,K):
         self.cameraK = K
-        self.featureDetector = cv2.xfeatures2d.SIFT_create()
+        self.featureDetector = cv2.ORB_create()
     
     def IOU(self, bbox, latestBbox):
-        print(bbox)
         dx = min(bbox[2],latestBbox[2])-max(bbox[0],latestBbox[0])
         dy = min(bbox[3],latestBbox[3])-max(bbox[1],latestBbox[1])
         int_area = dx*dy
@@ -39,16 +38,20 @@ class Vision:
 
     def featureMatch(self, descs1, descs2):
         bf = cv2.BFMatcher()
+        if descs1 is None or descs2 is None:
+            return 0,None
         matches = bf.knnMatch(descs1,descs2, k=2)
         match = []
         dMatch = []
-        for d1,d2 in matches:
-            if d1.distance < 0.75*d2.distance:
-                match.append(1)
-                dMatch.append(d1)
-            else:
-                match.append(0)
-        return np.array(match),dMatch
+        if (len(matches[0])>1):
+            for d1,d2 in matches:
+                if d1.distance < 0.75*d2.distance:
+                    match.append(1)
+                    dMatch.append(d1)
+                else:
+                    match.append(0)
+            return np.array(match),dMatch
+        return 0,None
 
     # leave the keypoints as they are. Instead, divide the camera points by z_estd
     def globalKeypoint2camera(self, keypointMatches, objectModel, particleGlobal3D, T, R):

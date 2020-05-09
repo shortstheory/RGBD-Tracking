@@ -21,9 +21,9 @@ from tqdm import tqdm
 # %%
 particleN = 10
 particleCov = 0.001*np.diag([.01,.01,.01,.001,.001,.001])
-dl = Dataloader('/home/nic/ms-work/dtplayground/bear_front/')
+# dl = Dataloader('/home/nic/ms-work/dtplayground/bear_front/')
 # dl = Dataloader('/home/nic/ms-work/dtplayground/new_ex_occ4/','new_ex_occ4')
-# dl = Dataloader('/home/nic/ms-work/dtplayground/face_occ5/','face_occ5')
+dl = Dataloader('/home/nic/ms-work/dtplayground/face_occ5/','face_occ5')
 
 bbox,_ = dl.getBbox(0)
 # static camera
