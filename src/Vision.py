@@ -3,10 +3,18 @@ import numpy as np
 from .Helpers import Keypoints3D
 
 class Vision:
-    def __init__(self,K):
+    def __init__(self,K, detector='sift'):
         self.cameraK = K
-        self.featureDetector = cv2.ORB_create()
-    
+        if detector == 'sift':
+            self.featureDetector = cv2.xfeatures2d.SIFT_create()
+        elif detector == 'surf':
+            self.featureDetector = cv2.xfeatures2d.SURF_create()
+        elif detector == 'orb':
+            self.featureDetector = cv2.ORB_create()
+        else:
+            self.featureDetector = None
+            print("No such detector!")
+
     def IOU(self, bbox, latestBbox):
         dx = min(bbox[2],latestBbox[2])-max(bbox[0],latestBbox[0])
         dy = min(bbox[3],latestBbox[3])-max(bbox[1],latestBbox[1])

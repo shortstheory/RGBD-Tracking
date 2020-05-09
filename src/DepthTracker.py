@@ -16,13 +16,13 @@ import copy
 import pickle as pkl
 
 class DepthTracker:
-    def __init__(self, cameraK, particleN, particleCov, pThresh=0.6):
+    def __init__(self, cameraK, particleN, particleCov, pThresh=0.6, detector='sift'):
         self.objectModel = Keypoints3D()
         self.xyz_array = None
         self.img = None
         self.bbox = [0,0,0,0]
 
-        self.vision = Vision(cameraK)
+        self.vision = Vision(cameraK, detector)
         self.particleFilter = None
         self.particleN = particleN
         self.particleCov = particleCov

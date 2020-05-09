@@ -1,9 +1,6 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
-from IPython import get_ipython
-
-# %%
 import matplotlib
 import matplotlib.pyplot as plt
 import os
@@ -15,97 +12,74 @@ from Dataloader import Dataloader
 from src.Vision import Vision
 from src.DepthTracker import DepthTracker
 from tqdm import tqdm
-
+import time
+import gc
+from random import random
 
 
 # %%
-particleN = 10
-particleCov = 0.001*np.diag([.01,.01,.01,.001,.001,.001])
-# dl = Dataloader('/home/nic/ms-work/dtplayground/bear_front/')
-# dl = Dataloader('/home/nic/ms-work/dtplayground/new_ex_occ4/','new_ex_occ4')
-dl = Dataloader('/home/nic/ms-work/dtplayground/face_occ5/','face_occ5')
+def runPrediction(dt,dl,T,R,p=1):
+    deltaT = 1/30.0
+    bestP = []
+    gtP = []
+    W = []
+    error=0
+    lastIdx = 0
+    start = time.time()
+    c = np.random.choice([0,1],p=[p,1-p])
+    for i in tqdm(range(dl.bboxes.shape[0])):
+        scanFrame = False
+        if i==0:
+            scanFrame = True
+            xyz = dl.getXYZ(i)
+        else:
+            if c == 1:
+                xyz = dl.getXYZ(i)
+            else:
+                xyz = np.empty((480,640,3))
+                xyz[:,:,:] = np.nan
+        img = dl.getRGB(i)
+        bbox,_ = dl.getBbox(i)
+        bestParticle,idx = dt.updateMeasurements(img,xyz,bbox,T,R,deltaT,scanFrame)
+        w = np.sum(dt.particleFilter.weights*dt.particleFilter.weights)
+        W.append((1/w)/particleN)
+        if bestParticle is not None:
+            lastIdx = idx
+            bestP.append(bestParticle)
+        else:
+            bestP.append(dt.particleFilter.particles[lastIdx])
+            
+        if np.all(bbox[0]>0) == True:
+            gt_xyz = dl.getXYZ(i)
+            u,v = dt.vision.getBBoxCenter(bbox[0])
+            gt_origin = gt_xyz[u,v,:]
+            error += np.linalg.norm(bestP[-1][:3]-gt_origin)
+            gtP.append(gt_origin)
+        else:
+            gtP.append([None,None,None])
+    end = time.time()
+    deltaT = end-start
+    return (bestP,gtP,W,error,deltaT)
 
-bbox,_ = dl.getBbox(0)
-# static camera
 T = np.array([0,0,0])
 R = np.eye(3)
-
-dt = DepthTracker(dl.K,particleN,particleCov)
-deltaT = 1/30.0
-print(dl.numOfFrames)
-
+particleN = 100
+particleCov = 0.001*np.diag([.01,.01,.01,.001,.001,.001])
+dl = Dataloader('/home/nic/ms-work/dtplayground/bear_front/')
 
 # %%
-bestP = []
-gtP = []
-error=0
-lastIdx = 0
-for i in tqdm(range(dl.bboxes.shape[0])):
-    scanFrame = False
-    if i==0:
-        scanFrame = True
-        xyz = dl.getXYZ(i)
-    # if i < 120:
-    #     xyz = dl.getXYZ(i)
-    else:
-        xyz = np.empty((480,640,3))
-        xyz[:,:,:] = np.nan
-    img = dl.getRGB(i)
-    bbox,_ = dl.getBbox(i)
-    bestParticle,idx = dt.updateMeasurements(img,xyz,bbox,T,R,deltaT,scanFrame)
-
-    if bestParticle is not None:
-        gt_xyz = dl.getXYZ(i)
-        lastIdx = idx
-        u,v = dt.vision.getBBoxCenter(bbox[0])
-        gt_origin = gt_xyz[u,v,:]
-        bestP.append(bestParticle)
-        gtP.append(gt_origin)
-        error += np.linalg.norm(bestParticle[:3]-gt_origin)
-    else:
-        bestP.append(dt.particleFilter.particles[lastIdx])
-        gtP.append(np.array([0,0,0]))
-
+dt = DepthTracker(dl.K,particleN,particleCov,0.6,'sift')
+siftData=runPrediction(dt,dl,T,R,1)
+# dt = DepthTracker(dl.K,particleN,particleCov,0.6,'surf')
+# surfData=runPrediction(dt,dl,T,R,1)
+# dt = DepthTracker(dl.K,particleN,particleCov,0.6,'orb')
+# orbData=runPrediction(dt,dl,T,R,1)
 
 # %%
-print(error/dl.bboxes.shape[0])
-bestP = np.array(bestP)
-plt.plot(bestP[:,:3])
-
-
-# %%
-gtP = np.array(gtP)
-# plt.scatter(np.arange(gtP.shape[0]),gtP)#,linestyle="None")#-bestP[:,:3])
-plt.plot(gtP)
-
+# accRuns = []
+# for i in range(100):
+#     dt = DepthTracker(dl.K,particleN,particleCov,0.6,'sift')
+#     runData=runPrediction(dt,dl,T,R,i/100)
+#     accRuns.append(runData)
 
 # %%
-plt.imshow(dl.getDepth(0))
-
-
-# %%
-np.max(dl.getDepth(0))
-
-
-# %%
-depthname = '/home/nic/ms-work/dtplayground/bear_front/depth/d-0-1.png'
-depth = cv2.imread(depthname,-1)
-depth = (depth >> 3) | (depth << (16 - 3))
-depth=depth/1000
-
-
-# %%
-np.max(depth)
-
-
-# %%
-np.diag(np.array([0.1,0.001,1]))
-
-
-# %%
-np.eye(3)
-
-
-# %%
-
-
