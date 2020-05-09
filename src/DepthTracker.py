@@ -16,7 +16,7 @@ import copy
 import pickle as pkl
 
 class DepthTracker:
-    def __init__(self, cameraK, particleN, particleCov):
+    def __init__(self, cameraK, particleN, particleCov, pThresh=0.6):
         self.objectModel = Keypoints3D()
         self.xyz_array = None
         self.img = None
@@ -26,6 +26,7 @@ class DepthTracker:
         self.particleFilter = None
         self.particleN = particleN
         self.particleCov = particleCov
+        self.pThresh = pThresh
 
     def updateBBox(self, bboxes):
         if len(bboxes)==1:
@@ -54,9 +55,13 @@ class DepthTracker:
             pfInitialState[:3] = origin3D
             self.particleFilter = PF(pfInitialState,self.particleN,self.particleCov)
         else:
+            w = np.sum(self.particleFilter.weights*self.particleFilter.weights)
+            effectiveParticleRatio = (1/w)/self.particleN
+            if effectiveParticleRatio < self.pThresh:
+                self.particleFilter.restratified_sampling()
             # need to handle cases here for pf
             # assume bbox is always in image frame (but need not be in RGB)
-            self.particleFilter.update(dt)
+            self.particleFilter.predict(dt)
             if self.bbox is not None:
                 keypoints, descriptors, img = self.vision.getKeypoints2D(img, self.bbox)
                 match, dmatch = self.vision.featureMatch(self.objectModel.descriptors, descriptors)
