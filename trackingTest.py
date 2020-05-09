@@ -70,16 +70,48 @@ dl = Dataloader('/home/nic/ms-work/dtplayground/bear_front/')
 # %%
 dt = DepthTracker(dl.K,particleN,particleCov,0.6,'sift')
 siftData=runPrediction(dt,dl,T,R,1)
-# dt = DepthTracker(dl.K,particleN,particleCov,0.6,'surf')
-# surfData=runPrediction(dt,dl,T,R,1)
-# dt = DepthTracker(dl.K,particleN,particleCov,0.6,'orb')
-# orbData=runPrediction(dt,dl,T,R,1)
+dt = DepthTracker(dl.K,particleN,particleCov,0.6,'surf')
+surfData=runPrediction(dt,dl,T,R,1)
+dt = DepthTracker(dl.K,particleN,particleCov,0.6,'orb')
+orbData=runPrediction(dt,dl,T,R,1)
 
 # %%
-# accRuns = []
-# for i in range(100):
-#     dt = DepthTracker(dl.K,particleN,particleCov,0.6,'sift')
-#     runData=runPrediction(dt,dl,T,R,i/100)
-#     accRuns.append(runData)
+accRuns = []
+for i in range(100):
+    dt = DepthTracker(dl.K,particleN,particleCov,0.6,'sift')
+    runData=runPrediction(dt,dl,T,R,i/100)
+    accRuns.append(runData)
+
+# %%
+siftPlot = np.array(siftData[0])[:,:3]
+surfPlot = np.array(surfData[0])[:,:3]
+orbPlot = np.array(orbData[0])[:,:3]
+gtPlot = np.array(siftData[1])[:,:3]
+fig, ax = plt.subplots(1,4,figsize=(16, 4))
+# fig.suptitle('Feature Descriptor Comparison\n')
+ax[0].plot(gtPlot)
+ax[1].plot(siftPlot)
+ax[2].plot(surfPlot)
+ax[3].plot(orbPlot)
+ax[0].set_title('Ground Truth')
+ax[1].set_title('SIFT')
+ax[2].set_title('SURF')
+ax[3].set_title('ORB')
+ax[0].set_ylabel('Meters')
+ax[1].set_xlabel('Runtime: '+str(round(siftData[4],3))+' secs\nMSE: '+str(round(siftData[3]/len(gtPlot),3))+' m')
+ax[2].set_xlabel('Runtime: '+str(round(surfData[4],3))+' secs\nMSE: '+str(round(surfData[3]/len(gtPlot),3))+' m')
+ax[3].set_xlabel('Runtime: '+str(round( orbData[4],3))+' secs\nMSE:'+str(round( orbData[3]/len(gtPlot),3) )+' m')
+fig.legend(ax,labels=['X','Y','Z'],
+           loc="top right",
+           borderaxespad=2,
+           )
+
+
+# %%
+nparticles = [5,10,50,100,500,1000]
+for p in nparticles:
+    dt = DepthTracker(dl.K,p,particleCov,0.6,'sift')
+    siftData=runPrediction(dt,dl,T,R,1)
+
 
 # %%
