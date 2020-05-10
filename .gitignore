@@ -1,4 +1,8 @@
-playground.ipynb
-tracking.ipynb
-*.pync
+*.ipynb
+*.pyc
 src/__pycache__
+*.pkl
+*.eps
+*.png
+*.code-workspace
+*.pkl
