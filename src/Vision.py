@@ -1,7 +1,10 @@
 import cv2
 import numpy as np
 from .Helpers import Keypoints3D
-
+'''
+Implements all the functions needed for keypoint matching and feature descriptors
+Used as static functions
+'''
 class Vision:
     def __init__(self,K, detector='sift'):
         self.cameraK = K
@@ -16,6 +19,10 @@ class Vision:
             print("No such detector!")
 
     def IOU(self, bbox, latestBbox):
+        '''
+        Computes intersection over union by calculating the overlapping area
+        using the previous frame
+        '''
         dx = min(bbox[2],latestBbox[2])-max(bbox[0],latestBbox[0])
         dy = min(bbox[3],latestBbox[3])-max(bbox[1],latestBbox[1])
         int_area = dx*dy
@@ -29,13 +36,15 @@ class Vision:
         return int(bbox[1]+bbox[3])//2,int(bbox[0]+bbox[2])//2
 
     def getKeypoints2D(self, img, bbox):
+        '''
+        Generates the keypoints of the pixels in the bounding box
+        '''
         (startX, startY, endX, endY) = [int(i) for i in bbox]
         img = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         img = img[startY:endY,startX:endX]
         keypoints, descriptors = self.featureDetector.detectAndCompute(img,None)
         return keypoints, descriptors, img
 
-    # pixels is a 3xN array
     def pixel2camera(self,pixels,z_estimate):
         cameraPoints3D = z_estimate*np.matmul(np.linalg.inv(self.cameraK),pixels)
         return cameraPoints3D
@@ -45,6 +54,9 @@ class Vision:
         return pixels
 
     def featureMatch(self, descs1, descs2):
+        '''
+        Finds the matching descriptors
+        '''
         bf = cv2.BFMatcher()
         if descs1 is None or descs2 is None:
             return 0,None
@@ -61,8 +73,10 @@ class Vision:
             return np.array(match),dMatch
         return 0,None
 
-    # leave the keypoints as they are. Instead, divide the camera points by z_estd
     def globalKeypoint2camera(self, keypointMatches, objectModel, particleGlobal3D, T, R):
+        '''
+        Transforms the keypoints of global coordinates to camera
+        '''
         Hcw = np.zeros((4,4))
         Hcw[:3,:3] = R
         Hcw[:3,3] = T
@@ -98,7 +112,6 @@ class Vision:
                 pixels.append([kps[idx.trainIdx].pt[0]+bbox[0],kps[idx.trainIdx].pt[1]+bbox[1]])
         return np.array(pixels).T
 
-    # add camera R and T as arguments here!
     def scanObject(self, cvimg, bbox, xyz_array, T, R):
         keypoints, descriptors, cvimg = self.getKeypoints2D(cvimg, bbox)
         (startX, startY, endX, endY) = [int(i) for i in bbox]
@@ -106,7 +119,6 @@ class Vision:
         origin3D = campoints3D[cvimg.shape[0]//2,cvimg.shape[1]//2,:]
         keypoints3D = Keypoints3D()
         for kp,desc in zip(keypoints,descriptors):
-            # find a way to do bilinear interpolation of depth map
             u,v = int(kp.pt[1]), int(kp.pt[0])
             relativePoint = campoints3D[u,v,:]-origin3D
             point3D = self.transformPoints(T,R,relativePoint,True).reshape(-1)

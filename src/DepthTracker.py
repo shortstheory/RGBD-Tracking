@@ -15,6 +15,11 @@ import os
 import copy
 import pickle as pkl
 
+'''
+Class which implements RGB-D tracking
+Takes intrinsic matrix, number of particles, covariance, threshold for resampling
+Can use 'sift', 'surf', 'orb' for descriptors
+'''
 class DepthTracker:
     def __init__(self, cameraK, particleN, particleCov, pThresh=0.6, detector='sift'):
         self.objectModel = Keypoints3D()
@@ -27,6 +32,9 @@ class DepthTracker:
         self.pThresh = pThresh
 
     def updateBBox(self, bboxes):
+        '''
+        Finds the bounding box matching that from the previous frame using IOU
+        '''
         if len(bboxes)==1:
             if np.all(bboxes[0]>0) == True:
                 self.bbox = bboxes[0]
@@ -43,9 +51,11 @@ class DepthTracker:
             self.bbox = bboxes[max_idx]
 
     def updateMeasurements(self, img, xyz_array, bboxes, cameraT, cameraR, dt, scanFrame=False):
-        # self.latestImg = img
+        '''
+        Updates particles based on keypoint matching or depth of the center of the
+        bounding box if available
+        '''
         self.updateBBox(bboxes)
-
         if scanFrame==True:
             self.objectModel, origin3D = self.vision.scanObject(img, self.bbox, xyz_array, cameraT, cameraR)
             pfInitialState = np.zeros(6)
@@ -56,7 +66,6 @@ class DepthTracker:
             effectiveParticleRatio = (1/w)/self.particleN
             if effectiveParticleRatio < self.pThresh:
                 self.particleFilter.restratified_sampling()
-            # need to handle cases here for pf
             # assume bbox is always in image frame (but need not be in RGB)
             self.particleFilter.predict(dt)
             if self.bbox is not None:
@@ -68,8 +77,6 @@ class DepthTracker:
                         u,v = self.vision.getBBoxCenter(self.bbox)
                         origin = xyz_array[u,v,:]
                         if np.isnan(origin).any() == False:
-                            # evaluate all particles on 3D correlations EASY
-                            # if considering RPY, then need to consider the image as well
                             corr = self.correlation3D(particle, xyz_array, cameraT, cameraR)
                             correlations.append(corr)
                         else:
@@ -81,9 +88,11 @@ class DepthTracker:
                     return self.particleFilter.particles[bestParticleIdx], bestParticleIdx
         return None, None
 
-    # pass keypoints to this so we dont need to do SIFT over and over again
     def correlation2D(self, particle, kps, desc, match, dmatch, cameraT, cameraR):
-        # we can weight it by number of matches too
+        '''
+        Computes the correlation when depth information is no longer available using
+        keypoints and descriptors
+        '''
         cameraPoints3D = self.vision.globalKeypoint2camera(match,self.objectModel,particle[:3],cameraT,cameraR)
         predictedKeypointPixels = self.vision.camera2pixel(cameraPoints3D)
         shiftedKeypointPixels = self.vision.shiftKeypoints(kps,dmatch,self.bbox)
@@ -91,6 +100,9 @@ class DepthTracker:
         return 1/meanErr
     
     def correlation3D(self, particle, xyz_array, cameraT, cameraR):
+        '''
+        Computes the correlation when depth information is avaialble
+        '''
         u,v = self.vision.getBBoxCenter(self.bbox)
         pose = xyz_array[u,v,:]
         particle3D = particle[:3]
@@ -98,10 +110,3 @@ class DepthTracker:
         cameraPoint = self.vision.transformPoints(cameraT, cameraR, particle3D).reshape(-1)
         pointErr = np.linalg.norm(pose-cameraPoint)
         return 1/pointErr
-
-#%%
-def main(args):
-    dt = DepthTracker(None,None,None)
-
-if __name__=='__main__':
-	main(sys.argv)
