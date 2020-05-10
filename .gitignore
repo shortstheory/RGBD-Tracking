@@ -6,3 +6,6 @@ src/__pycache__
 *.png
 *.code-workspace
 *.pkl
+.vscode/
+__pycache__/
+tracking.ipynb
